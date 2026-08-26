@@ -1,7 +1,3 @@
 {
-  "functions": {
-    "api/bot.js": {
-      "maxDuration": 30
-    }
-  }
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index.js" }]
 }
