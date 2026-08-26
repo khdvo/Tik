@@ -1,29 +1,30 @@
-export default async function handler(req, res) {
-  if (req.method === 'POST') {
-    const msg = req.body.message;
-    const chatId = msg.chat.id;
-    let username = msg.text.replace('@','').trim();
-    if (username === '/start') {
-      await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: '👋 أرسل يوزر تيك توك بدون @' })
-      });
-      return res.send('OK');
-    }
-    try {
-      const r = await fetch(`https://www.tiktok.com/@${username}`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-      const html = await r.text();
-      const region = html.match(/"region":"(.*?)"/)?.[1] || 'مخفي';
-      const followers = html.match(/"followerCount":(\d+)/)?.[1] || 'غير معروف';
-      const flag = region.length===2? region.toUpperCase().replace(/./g,c=>String.fromCodePoint(127397+c.charCodeAt())) : '';
-      await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: `🌍 الدولة: ${region} ${flag}\n👥 متابعين: ${followers}` })
-      });
-    } catch {}
-    return res.send('OK');
+const { Telegraf } = require('telegraf');
+const axios = require('axios');
+
+const bot = new Telegraf(process.env.BOT_TOKEN);
+
+bot.start((ctx) => ctx.reply('ارسل يوزر تيك توك بدون @ مثلا: khaby.lame'));
+
+bot.on('text', async (ctx) => {
+  const username = ctx.message.text.replace('@','').trim();
+  if(!username) return;
+  try {
+    await ctx.reply(`جاري البحث عن @${username} ...`);
+    // هنا تقدر تضيف كود جلب معلومات تيك توك
+    await ctx.reply(`تم استلام اليوزر: ${username} ✅\nالبوت شغال!`);
+  } catch (e) {
+    await ctx.reply('ما لقيت اليوزر، تأكد من الاسم');
   }
-  res.send('OK');
-}
+});
+
+module.exports = async (req, res) => {
+  if (req.method === 'GET') {
+    return res.status(200).send('Bot is Live');
+  }
+  try {
+    await bot.handleUpdate(req.body);
+    res.status(200).send('OK');
+  } catch (e) {
+    res.status(200).send('OK');
+  }
+};
