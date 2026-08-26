@@ -1,1 +1,8 @@
-{"type":"module"}
+{
+  "name": "tik-bot",
+  "version": "1.0.0",
+  "dependencies": {
+    "telegraf": "^4.15.0",
+    "axios": "^1.6.0"
+  }
+}
