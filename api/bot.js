@@ -2,44 +2,69 @@ const { Telegraf } = require('telegraf');
 const axios = require('axios');
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-bot.start((ctx) => ctx.reply('هلا! 👋\nارسل يوزر تيك توك بدون @'));
+bot.start((ctx) => ctx.reply('هلا! ارسل يوزر تيك توك 👇'));
 
 bot.on('text', async (ctx) => {
-  let username = ctx.message.text.trim().replace('@','').replace('https://','').split('/').pop();
+  let username = ctx.message.text.trim().replace('@','').split('/').pop();
   if(!username || username.startsWith('/')) return;
   
-  const wait = await ctx.reply(`جاري سحب معلومات @${username} ...`);
+  const wait = await ctx.reply(`جاري فحص @${username} ...`);
   
   try {
-    // نجيب معلومات من API مجاني
-    const res = await axios.post('https://www.tikwm.com/api/user/info', 
-      `unique_id=${username}`, 
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-    );
+    let user = null;
     
-    const data = res.data?.data?.user;
-    if(!data) throw new Error('no user');
+    // المحاولة 1: tikwm GET
+    try {
+      const r1 = await axios.get(`https://www.tikwm.com/api/user/info?unique_id=${username}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000
+      });
+      if(r1.data?.data?.user) user = r1.data.data.user;
+    } catch(e){}
 
-    const info = `
-✅ معلومات @${data.uniqueId}
+    // المحاولة 2: API ثاني بديل
+    if(!user){
+      const r2 = await axios.get(`https://countik.com/api/userinfo?username=${username}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000
+      });
+      if(r2.data?.followerCount) {
+        user = {
+          uniqueId: r2.data.username || username,
+          nickname: r2.data.nickname,
+          region: r2.data.region || r2.data.country,
+          followerCount: r2.data.followerCount,
+          followingCount: r2.data.followingCount,
+          heartCount: r2.data.heartCount,
+          videoCount: r2.data.videoCount,
+          signature: r2.data.signature,
+          avatarLarger: r2.data.avatar
+        };
+      }
+    }
 
-👤 الاسم: ${data.nickname}
-🌍 الدولة: ${data.region || 'غير معروفة'}
-❤️ متابعين: ${data.followerCount}
-👥 يتابع: ${data.followingCount}
-💜 لايكات: ${data.heartCount}
-🎬 فيديوهات: ${data.videoCount}
-📝 البايو: ${data.signature || 'لا يوجد'}
+    if(!user) throw new Error('not found');
 
-🔗 https://tiktok.com/@${data.uniqueId}
-    `;
+    const txt = `✅ @${user.uniqueId}
+👤 ${user.nickname}
+🌍 الدولة: ${user.region || 'غير معروفة'}
+❤️ متابعين: ${Number(user.followerCount).toLocaleString()}
+👥 يتابع: ${user.followingCount}
+💜 لايكات: ${Number(user.heartCount).toLocaleString()}
+🎬 فيديو: ${user.videoCount}
+📝 ${user.signature || ''}`;
 
     await ctx.telegram.deleteMessage(ctx.chat.id, wait.message_id).catch(()=>{});
-    await ctx.replyWithPhoto({ url: data.avatarLarger }, { caption: info });
+    
+    if(user.avatarLarger){
+      await ctx.replyWithPhoto(user.avatarLarger, { caption: txt }).catch(async ()=>{
+        await ctx.reply(txt);
+      });
+    } else {
+      await ctx.reply(txt);
+    }
 
-  } catch (e) {
+  } catch (err) {
     await ctx.telegram.deleteMessage(ctx.chat.id, wait.message_id).catch(()=>{});
-    await ctx.reply(`❌ ما قدرت اجيب @${username}\nتأكد اليوزر صحيح او جرب يوزر ثاني مشهور مثل khaby.lame`);
+    await ctx.reply(`❌ ما قدرت اجيب @${username}\nجرب يوزر مشهور: khaby.lame\nاذا ما اشتغل قلي بجرب لك طريقة ثالثة`);
   }
 });
 
